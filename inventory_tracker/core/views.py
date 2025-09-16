@@ -18,10 +18,14 @@ def google_auth(request):
     try:
     # Code goes here
         id_info = id_token.verify_oauth2_token(
-        token, 
-        google_requests.Request(), 
-        settings.GOOGLE_OAUTH_CLIENT_ID
+        token,
+        google_requests.Request()
         )
+
+# Ensure the token was issued for one of your apps
+        if id_info['aud'] not in settings.GOOGLE_OAUTH_CLIENT_IDS:
+            return Response({"error": "Invalid client ID", "status": False}, status=status.HTTP_400_BAD_REQUEST)
+
         email = id_info['email']
         first_name = id_info.get('given_name', '')
         last_name = id_info.get('family_name', '')
