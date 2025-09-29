@@ -7,7 +7,7 @@ from .models import User
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view,permission_classes
-
+from django.shortcuts import render
 
 @api_view(["POST"])
 def google_auth(request):
@@ -69,3 +69,14 @@ def google_auth(request):
 def Home(request):
 
     return Response("Hello world")
+
+
+
+
+
+
+def google_test(request):
+    """
+    Render a test page for Google OAuth login.
+    """
+    return render(request, 'google_test.html')
