@@ -126,3 +126,10 @@ GOOGLE_OAUTH_CLIENT_IDS = [
     config('GOOGLE_IOS_CLIENT_ID', default=''),
 ]
 GOOGLE_OAUTH_CLIENT_SECRET = config('GOOGLE_OAUTH_CLIENT_SECRET', default='')
+
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://happstock.onrender.com',
+]
+
+CSRF_TRUSTED_ORIGINS += ['http://127.0.0.1:8000', 'http://localhost:8000']
