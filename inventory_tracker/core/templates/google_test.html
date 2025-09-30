@@ -122,28 +122,31 @@
     }
 
     window.onload = () => {
-      if (window.google?.accounts?.id) {
+    if (window.google?.accounts?.id) {
+        // Initialize Google login
         window.google.accounts.id.initialize({
-          client_id: "958992113944-fonnluld5mf8fcm73736b2afhaaobiqg.apps.googleusercontent.com",
-          callback: handleCallbackResponse
+            client_id: "958992113944-fonnluld5mf8fcm73736b2afhaaobiqg.apps.googleusercontent.com",
+            callback: handleCallbackResponse
         });
 
+        // Render the Google sign-in button
         window.google.accounts.id.renderButton(
-          document.getElementById("googleSignInDiv"),
-          { theme: "outline", size: "large", text: "sign_in_with", shape: "rectangular" }
+            document.getElementById("googleSignInDiv"),
+            { theme: "outline", size: "large", text: "sign_in_with", shape: "rectangular" }
         );
-      } else {
+
+        // Debug why the popup might not fire
+        window.google.accounts.id.prompt(notification => {
+            console.log("Prompt notification:", notification);
+        });
+
+    } else {
         console.error("Google Identity Services script not loaded");
         document.getElementById("googleSignInDiv").innerHTML =
-          "Google script not loaded. Please refresh the page.";
-      }
-    };
+            "Google script not loaded. Please refresh the page.";
+    }
+};
 
-    // Catch any unhandled promise rejections
-    window.addEventListener("unhandledrejection", function(event) {
-      console.error("Unhandled promise rejection:", event.reason);
-      alert("An unexpected error occurred. Check console for details.");
-    });
   </script>
 </body>
 </html>
