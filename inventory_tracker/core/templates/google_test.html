@@ -95,7 +95,7 @@
     })
     .then(res => {
         if (!res.ok) {
-        throw new Error("Login failed. Please try again.");
+            throw new Error("Login failed. Please try again.");
         }
         return res.json();
     })

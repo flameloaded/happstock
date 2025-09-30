@@ -73,7 +73,7 @@ DATABASES = {
             default="postgresql://postgres:4578@localhost:5432/happstock"
         ),
         conn_max_age=600,
-        ssl_require=True
+        ssl_require=False
     )
 }
 
