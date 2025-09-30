@@ -94,6 +94,7 @@
         body: formData,
     })
     .then(res => {
+        console.log("Response status:", res.status, res.statusText);
         if (!res.ok) {
             throw new Error("Login failed. Please try again.");
         }
@@ -126,6 +127,7 @@
         errorEl.style.display = "block";
     })
     .finally(() => {
+        console.log("Finally block executed");
         loadingEl.style.display = "none";
     });
     }
