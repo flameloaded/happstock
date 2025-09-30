@@ -6,51 +6,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign in with Google</title>
   <style>
-  body {
-    background: linear-gradient(to bottom, #111827, #1f2937);
-    font-family: sans-serif;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-  }
-  .card {
-    background-color: #1f2937;
-    padding: 2rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-  }
-  .google-button {
-    display: flex;
-    justify-content: center;
-    margin-top: 1rem;
-  }
-  .loading, .error, .success {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-  }
-  .error {
-    color: red;
-  }
-  .success {
-    color: green;
-  }
-  .token-display {
-    background-color: #374151;
-    padding: 1rem;
-    border-radius: 0.25rem;
-    margin-top: 1rem;
-    word-break: break-all;
-    font-family: monospace;
-    font-size: 0.75rem;
-    text-align: left;
-  }
-</style>
+    body {
+      background: linear-gradient(to bottom, #111827, #1f2937);
+      font-family: sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background-color: #1f2937;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .google-button { display: flex; justify-content: center; margin-top: 1rem; }
+    .loading, .error, .success { margin-top: 1rem; font-size: 0.9rem; }
+    .error { color: red; }
+    .success { color: green; }
+    .token-display {
+      background-color: #374151;
+      padding: 1rem;
+      border-radius: 0.25rem;
+      margin-top: 1rem;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+  </style>
 </head>
 <body>
   <div class="card">
@@ -66,95 +55,95 @@
         <a href="#" style="color: #3b82f6;">Terms of Service</a> and
         <a href="#" style="color: #3b82f6;">Privacy Policy</a>.
     </p>
-</div>
+  </div>
 
-<script>
-  const api = "https://happstock.onrender.com"; // Update with your server URL
-  const loadingEl = document.getElementById("loading");
-  const errorEl = document.getElementById("error");
-  const successEl = document.getElementById("success");
-  const tokenDisplayEl = document.getElementById("tokenDisplay");
+  <script>
+    const api = "https://happstock.onrender.com"; // Your backend URL
+    const loadingEl = document.getElementById("loading");
+    const errorEl = document.getElementById("error");
+    const successEl = document.getElementById("success");
+    const tokenDisplayEl = document.getElementById("tokenDisplay");
 
-  function handleCallbackResponse(response) {
-    console.log("Response received:", response);
-    
-    // Show loading state
-    loadingEl.style.display = "block";
-    errorEl.style.display = "none";
-    successEl.style.display = "none";
-    tokenDisplayEl.style.display = "none";
-    
-    // Prepare form data
-    const formData = new FormData();
-    formData.append("token", response.credential);
-    
-    // Send token to your Django API
-    fetch(`${api}/google_login/`, {
+    function handleCallbackResponse(response) {
+      console.log("Response received:", response);
+
+      loadingEl.style.display = "block";
+      errorEl.style.display = "none";
+      successEl.style.display = "none";
+      tokenDisplayEl.style.display = "none";
+
+      if (!response.credential) {
+        console.error("No credential received from Google");
+        errorEl.textContent = "Google login failed. No token returned.";
+        errorEl.style.display = "block";
+        loadingEl.style.display = "none";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("token", response.credential);
+
+      fetch(`${api}/google_login/`, {
         method: "POST",
         body: formData,
-    })
-    .then(res => {
-        console.log("Response status:", res.status, res.statusText);
+        credentials: "include" // send cookies if needed for CSRF sessions
+      })
+      .then(res => {
+        console.log("Fetch response:", res);
         if (!res.ok) {
-            throw new Error("Login failed. Please try again.");
+          return res.text().then(text => {
+            throw new Error(`HTTP ${res.status}: ${text}`);
+          });
         }
         return res.json();
-    })
-    .then(data => {
+      })
+      .then(data => {
         console.log("Login successful:", data);
-        
-        // Display success message
         successEl.textContent = "Login successful! Tokens received:";
         successEl.style.display = "block";
-        
-        // Display tokens in the div
-        const tokenInfo = {
-        tokens: data.tokens,
-        full_response: data
-        };
-        
+
         tokenDisplayEl.innerHTML = `
-        <strong>Access Token:</strong><br>
-        ${tokenInfo.tokens || 'Not found'}<br><br>
-        <strong>Full Response:</strong><br>
-        ${JSON.stringify(data, null, 2)}
+          <strong>Access Token:</strong><br>
+          ${data.tokens || 'Not found'}<br><br>
+          <strong>Full Response:</strong><br>
+          ${JSON.stringify(data, null, 2)}
         `;
         tokenDisplayEl.style.display = "block";
-    })
-    .catch(err => {
-        console.error("Login error:", err);
-        errorEl.textContent = "An unexpected error occurred. Please try again.";
+      })
+      .catch(err => {
+        console.error("Fetch error / Login failed:", err);
+        errorEl.textContent = `Login failed: ${err.message}`;
         errorEl.style.display = "block";
-    })
-    .finally(() => {
+      })
+      .finally(() => {
         console.log("Finally block executed");
         loadingEl.style.display = "none";
-    });
+      });
     }
-
 
     window.onload = () => {
-    if (window.google && window.google.accounts) {
+      if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
-        client_id: "958992113944-fonnluld5mf8fcm73736b2afhaaobiqg.apps.googleusercontent.com", // Replace with your actual client ID
-        callback: handleCallbackResponse
+          client_id: "958992113944-fonnluld5mf8fcm73736b2afhaaobiqg.apps.googleusercontent.com",
+          callback: handleCallbackResponse
         });
-        
-        window.google.accounts.id.renderButton(
-        document.getElementById("googleSignInDiv"),
-        { 
-            theme: "outline", 
-            size: "large",
-            text: "sign_in_with",
-            shape: "rectangular"
-        }
-        );
-    } else {
-        document.getElementById("googleSignInDiv").innerHTML = 
-        "Google script not loaded. Please refresh the page.";
-    }
-    };
-</script>
 
+        window.google.accounts.id.renderButton(
+          document.getElementById("googleSignInDiv"),
+          { theme: "outline", size: "large", text: "sign_in_with", shape: "rectangular" }
+        );
+      } else {
+        console.error("Google Identity Services script not loaded");
+        document.getElementById("googleSignInDiv").innerHTML =
+          "Google script not loaded. Please refresh the page.";
+      }
+    };
+
+    // Catch any unhandled promise rejections
+    window.addEventListener("unhandledrejection", function(event) {
+      console.error("Unhandled promise rejection:", event.reason);
+      alert("An unexpected error occurred. Check console for details.");
+    });
+  </script>
 </body>
 </html>
