@@ -8,7 +8,11 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view,permission_classes
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 
+
+
+@csrf_exempt
 @api_view(["POST"])
 def google_auth(request):
     token = request.data.get("token")
