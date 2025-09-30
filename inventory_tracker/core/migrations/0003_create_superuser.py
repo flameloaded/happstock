@@ -1,14 +1,15 @@
 from django.db import migrations
 from django.contrib.auth import get_user_model
-import os
+from decouple import config  # <- import config
 
 def create_superuser(apps, schema_editor):
     User = get_user_model()
 
-    email = os.environ["DJANGO_SUPERUSER_EMAIL"]
-    password = os.environ["DJANGO_SUPERUSER_PASSWORD"]
-    first_name = os.environ.get("DJANGO_SUPERUSER_FIRSTNAME", "Admin")
-    last_name = os.environ.get("DJANGO_SUPERUSER_LASTNAME", "User")
+    # Use config() to read from .env
+    email = config("DJANGO_SUPERUSER_EMAIL", default="admin@example.com")
+    password = config("DJANGO_SUPERUSER_PASSWORD", default="StrongPassword123")
+    first_name = config("DJANGO_SUPERUSER_FIRSTNAME", default="Admin")
+    last_name = config("DJANGO_SUPERUSER_LASTNAME", default="User")
 
     if not User.objects.filter(email=email).exists():
         User.objects.create_superuser(
@@ -23,7 +24,7 @@ def create_superuser(apps, schema_editor):
 
 def remove_superuser(apps, schema_editor):
     User = get_user_model()
-    email = os.environ.get("DJANGO_SUPERUSER_EMAIL")
+    email = config("DJANGO_SUPERUSER_EMAIL", default=None)
     if email:
         User.objects.filter(email=email).delete()
         print(f"🗑️ Superuser with email {email} deleted.")
@@ -31,7 +32,7 @@ def remove_superuser(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0001_initial"),  # change to your last migration
+        ("core", "0001_initial"),
     ]
 
     operations = [
