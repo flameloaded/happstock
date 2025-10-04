@@ -9,6 +9,21 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view,permission_classes
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from django.core.mail import send_mail
+from django.conf import settings
+from .utils import generate_activation_link, token_generator
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+from rest_framework import status, generics
+from .serializers import SignupSerializer
+from rest_framework.views import APIView
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.sites.shortcuts import get_current_site
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.contrib.auth.tokens import default_token_generator
+from django.urls import reverse
 
 
 
@@ -79,8 +94,86 @@ def Home(request):
 
 
 
-def google_test(request):
-    """
-    Render a test page for Google OAuth login.
-    """
-    return render(request, 'google_test.html')
+
+
+
+
+
+
+
+
+class SignupView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = SignupSerializer(data=request.data)
+        if serializer.is_valid():
+            # Save the user with is_active=False
+            user = serializer.save(is_active=False)
+
+            # Generate token and uid
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            # Build activation link
+            current_site = get_current_site(request)
+            activation_link = f"http://{current_site.domain}/auth/activate/{uid}/{token}/"
+
+
+            # Send activation email
+            send_mail(
+                subject="Activate your account",
+                message=f"Hi {user.get_full_name() or user.email},\n\nClick to activate:\n{activation_link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            return Response(
+                {"detail": "Account created! Check your email to activate your account."},
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+class ActivateAccountView(APIView):
+    def get(self, request, uidb64, token):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user and token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return Response({"message": "Account successfully activated. You can now log in."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid or expired activation link."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+class EmailLoginView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        user = authenticate(request, email=email, password=password)
+
+        if user is not None:
+            if not user.is_active:
+                return Response({"error": "Please verify your email before logging in."}, status=status.HTTP_403_FORBIDDEN)
+
+            # generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }, status=status.HTTP_200_OK)
+
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
