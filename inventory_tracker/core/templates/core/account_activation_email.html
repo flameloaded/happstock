@@ -1,0 +1,13 @@
+{% autoescape off %}
+Hello {{ user.username }},
+
+Thank you for registering with Happstock!
+
+Please click the link below to activate your account:
+{{ protocol }}://{{ domain }}/auth/activate/{{ uid }}/{{ token }}/
+
+If you didn’t register on our website, please ignore this email.
+
+Best regards,
+The Happstock Team
+{% endautoescape %}

@@ -23,8 +23,8 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
-from django.urls import reverse
-
+from django.template.loader import render_to_string
+from django.core.mail import EmailMessage
 
 
 @csrf_exempt
@@ -93,49 +93,48 @@ def Home(request):
 
 
 
-
-
-
-
-
-
-
-
-
 class SignupView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
-            # Save the user with is_active=False
             user = serializer.save(is_active=False)
 
-            # Generate token and uid
+            # Generate activation link
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-
-            # Build activation link
             current_site = get_current_site(request)
-            activation_link = f"http://{current_site.domain}/auth/activate/{uid}/{token}/"
+            domain = current_site.domain
 
+            # Render activation email
+            mail_subject = "Activate your Happstock account"
+            message = render_to_string('core/account_activation_email.html', {
+            'user': user,
+            'domain': current_site.domain,
+            'uid': uid,
+            'token': token,
+            'protocol': 'https' if request.is_secure() else 'http',
+        })
 
-            # Send activation email
-            send_mail(
-                subject="Activate your account",
-                message=f"Hi {user.get_full_name() or user.email},\n\nClick to activate:\n{activation_link}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
+            try:
+                email = EmailMessage(
+                    mail_subject,
+                    message,
+                    settings.EMAIL_HOST_USER,
+                    [serializer.validated_data['email']],
+                )
+                email.send()
+            except Exception as e:
+                return Response(
+                    {"detail": f"Account created but failed to send email: {str(e)}"},
+                    status=status.HTTP_201_CREATED
+                )
 
             return Response(
-                {"detail": "Account created! Check your email to activate your account."},
-                status=status.HTTP_201_CREATED,
+                {"detail": "Account created successfully. Please check your email to activate your account."},
+                status=status.HTTP_201_CREATED
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
 
 
 class ActivateAccountView(APIView):
