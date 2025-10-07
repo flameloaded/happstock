@@ -25,6 +25,8 @@ from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.template.loader import render_to_string
 from django.core.mail import EmailMessage
+import sendgrid
+from sendgrid.helpers.mail import Mail
 
 
 @csrf_exempt
@@ -92,37 +94,34 @@ def Home(request):
 
 
 
-
 class SignupView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save(is_active=False)
 
-            # Generate activation link
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             current_site = get_current_site(request)
-            domain = current_site.domain
+            protocol = "https" if request.is_secure() else "http"
+            activation_link = f"{protocol}://{current_site.domain}/auth/activate/{uid}/{token}/"
 
-            # Render activation email
             mail_subject = "Activate your Happstock account"
-            message = render_to_string('core/account_activation_email.html', {
-            'user': user,
-            'domain': current_site.domain,
-            'uid': uid,
-            'token': token,
-            'protocol': 'https' if request.is_secure() else 'http',
-        })
+            message = render_to_string("core/account_activation_email.html", {
+                "user": user,
+                "activation_link": activation_link,
+            })
 
             try:
-                email = EmailMessage(
-                    mail_subject,
-                    message,
-                    settings.EMAIL_HOST_USER,
-                    [serializer.validated_data['email']],
+                sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
+                email = Mail(
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to_emails=serializer.validated_data["email"],
+                    subject=mail_subject,
+                    html_content=message
                 )
-                email.send()
+                sg.send(email)
+
             except Exception as e:
                 return Response(
                     {"detail": f"Account created but failed to send email: {str(e)}"},
@@ -135,7 +134,6 @@ class SignupView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ActivateAccountView(APIView):
     def get(self, request, uidb64, token):

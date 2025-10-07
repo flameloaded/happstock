@@ -1,13 +1,18 @@
 {% autoescape off %}
-Hello {{ user.username }},
-
-Thank you for registering with Happstock!
-
-Please click the link below to activate your account:
-{{ protocol }}://{{ domain }}/auth/activate/{{ uid }}/{{ token }}/
-
-If you didn’t register on our website, please ignore this email.
-
-Best regards,
-The Happstock Team
+<!DOCTYPE html>
+<html>
+  <body>
+    <h2>Hello {{ user.username }},</h2>
+    <p>Thank you for registering with <strong>Happstock</strong>!</p>
+    <p>Please click the button below to activate your account:</p>
+    <p>
+      <a href="{{ activation_link }}" 
+         style="background-color:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">
+         Activate Your Account
+      </a>
+    </p>
+    <p>If you didn’t register, please ignore this email.</p>
+    <p>Best regards,<br>The Happstock Team</p>
+  </body>
+</html>
 {% endautoescape %}

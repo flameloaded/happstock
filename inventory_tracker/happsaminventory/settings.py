@@ -141,15 +141,9 @@ CSRF_TRUSTED_ORIGINS += ['http://127.0.0.1:8000', 'http://localhost:8000']
 
 
 
-# settings.py
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = True
-EMAIL_PORT = 465
-EMAIL_HOST_USER = config('GMAIL_USERNAME')
-EMAIL_HOST_PASSWORD = config('GMAIL_PASSWORD')
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+SENDGRID_API_KEY = config("SENDGRID_API_KEY")  # Your SendGrid API key from .env
+DEFAULT_FROM_EMAIL = "flameloaded@gmail.com"  # Verified sender in SendGrid
 
 
 
