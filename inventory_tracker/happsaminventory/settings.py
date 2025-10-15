@@ -8,7 +8,8 @@ from pathlib import Path
 from datetime import timedelta
 from decouple import config
 import dj_database_url
-import os
+import os,  ssl, certifi
+
 
 # Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,6 +18,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-secret")
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+
+
+os.environ['SSL_CERT_FILE'] = certifi.where()
+ssl._create_default_https_context = ssl._create_stdlib_context
+
 
 # Applications
 INSTALLED_APPS = [

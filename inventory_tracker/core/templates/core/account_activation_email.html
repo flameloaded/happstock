@@ -1,18 +1,21 @@
-{% autoescape off %}
 <!DOCTYPE html>
 <html>
-  <body>
-    <h2>Hello {{ user.username }},</h2>
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Your Happstock Account</title>
+</head>
+<body>
+    <p>Hello {{ user.first_name }},</p>
+
     <p>Thank you for registering with <strong>Happstock</strong>!</p>
-    <p>Please click the button below to activate your account:</p>
-    <p>
-      <a href="{{ activation_link }}" 
-         style="background-color:#0d6efd; color:white; padding:10px 20px; text-decoration:none; border-radius:5px;">
-         Activate Your Account
-      </a>
-    </p>
+
+    <p>Your verification code is:</p>
+    <h2 style="color:#007bff;">{{ verification_code }}</h2>
+
+    <p>Please enter this code in the app or website to activate your account.</p>
+
     <p>If you didn’t register, please ignore this email.</p>
+
     <p>Best regards,<br>The Happstock Team</p>
-  </body>
+</body>
 </html>
-{% endautoescape %}

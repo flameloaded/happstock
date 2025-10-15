@@ -1,5 +1,9 @@
 from django.contrib.auth.models import BaseUserManager,AbstractBaseUser,PermissionsMixin
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+import random
+
 
 
 
@@ -42,6 +46,9 @@ REGISTRATION_CHOICES = (
     ('google', 'Google'),
 )
 
+
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ('admin', 'Admin'),
@@ -49,25 +56,58 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('user', 'User'),
     )
 
-    email = models.EmailField(unique=True, help_text="The user's unique email address.")
-    first_name = models.CharField(max_length=30, default='', null=True, blank=True, help_text="The user's first name.")
-    last_name = models.CharField(max_length=30, default='', null=True, blank=True, help_text="The user's last name.")
+    REGISTRATION_CHOICES = (
+        ('email', 'Email'),
+        ('google', 'Google'),
+    )
 
+    email = models.EmailField(unique=True)
+    first_name = models.CharField(max_length=30, blank=True, null=True)
+    last_name = models.CharField(max_length=30, blank=True, null=True)
     registration_method = models.CharField(max_length=20, choices=REGISTRATION_CHOICES, default='email')
-
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user', help_text="Defines the role of the user.")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
 
     is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False, help_text="Indicates whether the user has all admin permissions. Defaults to False.")
-    is_active = models.BooleanField(default=False, help_text="Indicates whether the user account is active. Defaults to False and user needs to verify email on signup before it can be set to True.")
-    date_joined = models.DateTimeField(auto_now_add=True, help_text="The date and time when the user joined.")
-    
-    objects = CustomUserManager()
+    is_superuser = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    # 🔹 Verification fields
+    verification_code = models.CharField(max_length=6, blank=True, null=True)
+    code_expires_at = models.DateTimeField(blank=True, null=True)
 
     USERNAME_FIELD = 'email'
+    objects = CustomUserManager()
 
     def __str__(self):
         return self.email
 
     def get_full_name(self):
-        return f"{self.first_name} {self.last_name}"
+        return f"{self.first_name or ''} {self.last_name or ''}".strip()
+
+    # ✅ Generate verification code
+    def generate_verification_code(self):
+        # If the code exists and hasn’t expired yet
+        if self.code_expires_at and timezone.now() < self.code_expires_at:
+            raise ValueError("A verification code has already been sent. Please wait until it expires.")
+
+        # Otherwise, generate a new one
+        code = str(random.randint(100000, 999999))
+        self.verification_code = code
+        self.code_expires_at = timezone.now() + timedelta(minutes=10)
+        self.save(update_fields=['verification_code', 'code_expires_at'])
+        return code
+
+    def verify_code(self, code):
+        if (
+            self.verification_code == code and
+            self.code_expires_at and
+            timezone.now() < self.code_expires_at
+        ):
+            return True
+        return False
+
+    def resend_verification_code(self):
+        if self.code_expires_at and timezone.now() < self.code_expires_at:
+            raise ValueError("You can only request a new code after the current one expires.")
+        return self.generate_verification_code()
