@@ -262,7 +262,7 @@ class ResendVerificationCodeView(APIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
+  
         try:
             new_code = user.resend_verification_code()
 
