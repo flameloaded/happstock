@@ -67,6 +67,7 @@ def google_auth(request):
             user.first_name = first_name
             user.last_name = last_name
             user.registration_method = 'google'
+            user.is_active = True
             user.save()
         else:
             if user.registration_method != 'google':
