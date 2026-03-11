@@ -163,30 +163,32 @@ class SignupView(APIView):
 
         email = serializer.validated_data["email"].lower()
 
-        # 🔹 Ensure email uniqueness regardless of case
+        # Ensure email uniqueness regardless of case
         if User.objects.filter(email__iexact=email).exists():
             return Response(
                 {"error": "An account with this email already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 🔹 Create inactive user
+        # Create inactive user
         user = serializer.save(email=email, is_active=False)
 
-        # 🔹 Check if a valid verification code already exists
+        # Prevent duplicate verification code requests
         if user.code_expires_at and timezone.now() < user.code_expires_at:
             remaining_time = int(
                 (user.code_expires_at - timezone.now()).seconds / 60
             )
             return Response(
-                {"error": f"A verification code has already been sent. Please wait {remaining_time} minute(s) before requesting another."},
+                {
+                    "error": f"A verification code has already been sent. Please wait {remaining_time} minute(s) before requesting another."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 🔹 Generate verification code
+        # Generate verification code
         code = user.generate_verification_code()
 
-        # 🔹 Render email HTML
+        # Render email template
         html_message = render_to_string(
             "apps/core/account_activation_email.html",
             {
@@ -196,28 +198,39 @@ class SignupView(APIView):
             },
         )
 
-        # 🔹 Send email via SendGrid
+        # Attempt to send email via SendGrid
         try:
-            sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
-            email_msg = Mail(
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to_emails=user.email,
-                subject="Verify your Happstock account",
-                html_content=html_message,
-            )
-            sg.send(email_msg)
+            if getattr(settings, "SENDGRID_API_KEY", None):
+                sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
+
+                email_msg = Mail(
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to_emails=user.email,
+                    subject="Verify your Happstock account",
+                    html_content=html_message,
+                )
+
+                sg.send(email_msg)
+
+                return Response(
+                    {
+                        "detail": "Account created successfully. Please check your email for the verification code."
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
 
         except Exception as e:
-            return Response(
-                {"detail": f"Account created but failed to send verification code: {str(e)}"},
-                status=status.HTTP_201_CREATED,
-            )
+            print("SendGrid error:", str(e))
 
+        # Fallback if SendGrid fails
         return Response(
-            {"detail": "Account created successfully. Please check your email for the verification code."},
+            {
+                "detail": "Account created successfully.",
+                "verification_code": code,
+                "note": "Email service unavailable. Verification code returned in response."
+            },
             status=status.HTTP_201_CREATED,
         )
-
 
 
 User = get_user_model()
