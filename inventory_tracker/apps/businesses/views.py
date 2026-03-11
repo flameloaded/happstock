@@ -222,8 +222,10 @@ def invite_staff(request, business_id):
         }, status=201)
 
     return Response({
-        "message": "Invitation sent successfully"
-    })
+        "message": "Invitation sent successfully",
+        "invite_link": invite_link
+})
+    
 
 
 # Accept invitation
