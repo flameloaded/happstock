@@ -158,8 +158,6 @@ def invite_staff(request, business_id):
 
     if role not in ["manager", "attendant"]:
         return Response({"error": "Invalid role"}, status=400)
-    
-    branch_id = request.data.get("branch_id")
 
     branch = None
     if branch_id:
@@ -177,36 +175,56 @@ def invite_staff(request, business_id):
         branch=branch
     )
 
-    invite_link = invite_link = f"http://127.0.0.1:8000/api/invitations/accept/{invitation.token}/?email={email}"
+    invite_link = f"http://127.0.0.1:8000/api/invitations/accept/{invitation.token}/?email={email}"
 
     # Render email template
-    html_content = render_to_string(
-        "businesses/invite_email.html",
-        {
-            "invite_link": invite_link,
-            "business": business,
-            "role": role
-        }
-    )
+    try:
+        html_content = render_to_string(
+            "businesses/invite_email.html",
+            {
+                "invite_link": invite_link,
+                "business": business,
+                "role": role
+            }
+        )
+    except Exception as e:
+        return Response(
+            {
+                "error": "Email template not found",
+                "invite_link": invite_link
+            },
+            status=201
+        )
 
     subject = "You've been invited to join a business"
     from_email = settings.DEFAULT_FROM_EMAIL
     to_email = [email]
 
     # Send email
-    email_message = EmailMultiAlternatives(
-        subject,
-        "You have been invited to join a business.",
-        from_email,
-        to_email
-    )
+    try:
+        email_message = EmailMultiAlternatives(
+            subject,
+            "You have been invited to join a business.",
+            from_email,
+            to_email
+        )
 
-    email_message.attach_alternative(html_content, "text/html")
-    email_message.send()
+        email_message.attach_alternative(html_content, "text/html")
+        email_message.send()
+
+    except Exception as e:
+        print("Email sending failed:", str(e))
+
+        # Return invite link if email fails
+        return Response({
+            "message": "Invitation created but email could not be sent",
+            "invite_link": invite_link
+        }, status=201)
 
     return Response({
         "message": "Invitation sent successfully"
     })
+
 
 # Accept invitation
 

@@ -190,7 +190,7 @@ class SignupView(APIView):
 
         # Render email template
         html_message = render_to_string(
-            "apps/core/account_activation_email.html",
+            "core/account_activation_email.html",
             {
                 "user": user,
                 "verification_code": code,
