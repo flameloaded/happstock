@@ -35,8 +35,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_yasg',
-    'core',
-    'userprofile',
+    'apps.core',
+    'apps.userprofile',
+    'apps.usersettings',
+    'apps.businesses',
+    'apps.inventory',
+    "rest_framework.authtoken",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 # Middleware
@@ -141,6 +146,15 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS += ['http://127.0.0.1:8000', 'http://localhost:8000']
 
 
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = "samuelvictor747futa@gmail.com"
+EMAIL_HOST_PASSWORD = "xiyvtnozwpcmzljb"
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 
