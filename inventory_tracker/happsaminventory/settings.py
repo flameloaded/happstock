@@ -76,18 +76,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'happsaminventory.wsgi.application'
 
-# Database
 DATABASES = {
-    'default': dj_database_url.config(
+    "default": dj_database_url.config(
         default=config(
             "DATABASE_URL",
             default="postgresql://postgres:4578@localhost:5432/happstock"
         ),
         conn_max_age=600,
-        ssl_require=False
+        ssl_require=True
     )
 }
-
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
