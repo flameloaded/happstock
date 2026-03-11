@@ -144,24 +144,19 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS += ['http://127.0.0.1:8000', 'http://localhost:8000']
 
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp-relay.brevo.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-
-EMAIL_HOST_USER = "samuelvictor747futa@gmail.com"
-EMAIL_HOST_PASSWORD = "xiyvtnozwpcmzljb"
-
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_USER = config("BREVO_SMTP_USER")
+EMAIL_HOST_PASSWORD = config("BREVO_SMTP_KEY")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
 
 
 
 
 
 
-
-SENDGRID_API_KEY = config("SENDGRID_API_KEY")  # Your SendGrid API key from .env
-DEFAULT_FROM_EMAIL = "flameloaded@gmail.com"  # Verified sender in SendGrid
 
 
 

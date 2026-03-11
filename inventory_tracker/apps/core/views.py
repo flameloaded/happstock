@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.decorators import api_view
 from django.views.decorators.csrf import csrf_exempt
-
+from django.utils import timezone
 from django.conf import settings
 
 from rest_framework import status
@@ -33,16 +33,25 @@ from django.conf import settings
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from .serializers import SignupSerializer
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.conf import settings
+import sendgrid
+from sendgrid.helpers.mail import Mail
+from apps.core.models import User
+from apps.core.serializers import SignupSerializer  # adjust import if needed
+from django.core.mail import EmailMultiAlternatives
+User = get_user_model()
 
 
 
@@ -137,16 +146,6 @@ def Home(request):
 
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.template.loader import render_to_string
-from django.utils import timezone
-from django.conf import settings
-import sendgrid
-from sendgrid.helpers.mail import Mail
-from apps.core.models import User
-from apps.core.serializers import SignupSerializer  # adjust import if needed
 
 
 class SignupView(APIView):
@@ -154,15 +153,17 @@ class SignupView(APIView):
     Handles new user signup and sends an email verification code.
     Ensures case-insensitive email uniqueness and prevents duplicate code generation before expiry.
     """
-
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        print("STEP 1: Serializer valid")
+
         email = serializer.validated_data["email"].lower()
 
+        print("STEP 2: Email:", email)
         # Ensure email uniqueness regardless of case
         if User.objects.filter(email__iexact=email).exists():
             return Response(
@@ -173,6 +174,7 @@ class SignupView(APIView):
         # Create inactive user
         user = serializer.save(email=email, is_active=False)
 
+        print("STEP 3: User created:", user.id)
         # Prevent duplicate verification code requests
         if user.code_expires_at and timezone.now() < user.code_expires_at:
             remaining_time = int(
@@ -188,6 +190,8 @@ class SignupView(APIView):
         # Generate verification code
         code = user.generate_verification_code()
 
+        print("STEP 4: Verification code generated:", code)
+
         # Render email template
         html_message = render_to_string(
             "core/account_activation_email.html",
@@ -198,31 +202,38 @@ class SignupView(APIView):
             },
         )
 
-        # Attempt to send email via SendGrid
+
+        subject = "Verify your Happstock account"
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [user.email]
+
+        # Send email using Brevo SMTP
+        print("STEP 5: Template rendered")
+
         try:
-            if getattr(settings, "SENDGRID_API_KEY", None):
-                sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
+            email_message = EmailMultiAlternatives(
+                subject,
+                f"Your verification code is {code}",
+                from_email,
+                recipient_list,
+            )
+            print("STEP 6: Sending email")
+            email_message.attach_alternative(html_message, "text/html")
+            email_message.send(fail_silently=False)
 
-                email_msg = Mail(
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to_emails=user.email,
-                    subject="Verify your Happstock account",
-                    html_content=html_message,
-                )
+            print("STEP 7: Email sent")
 
-                sg.send(email_msg)
-
-                return Response(
-                    {
-                        "detail": "Account created successfully. Please check your email for the verification code."
-                    },
-                    status=status.HTTP_201_CREATED,
-                )
+            return Response(
+                {
+                    "detail": "Account created successfully. Please check your email for the verification code."
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
         except Exception as e:
-            print("SendGrid error:", str(e))
+            print("Email sending failed:", str(e))
 
-        # Fallback if SendGrid fails
+        # Fallback if email fails
         return Response(
             {
                 "detail": "Account created successfully.",
@@ -233,10 +244,10 @@ class SignupView(APIView):
         )
 
 
-User = get_user_model()
 
 
-from django.utils import timezone
+
+
 
 class ActivateAccountView(APIView):
     def post(self, request):
@@ -296,37 +307,54 @@ class EmailLoginView(APIView):
 
     
 
+
+
 class ResendVerificationCodeView(APIView):
     def post(self, request):
-        print("📩 ResendVerificationCodeView triggered")  # debug
+        
         email = request.data.get("email")
 
         if not email:
-            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-  
+            return Response(
+                {"error": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         try:
+            # Generate new verification code
             new_code = user.resend_verification_code()
 
-            # ✅ Render HTML content using Django template
+            # Render HTML email template
             html_content = render_to_string(
-                "apps/core/verification_email.html",
-                {"user": user, "code": new_code}
+                "core/verification_email.html",
+                {
+                    "user": user,
+                    "code": new_code
+                }
             )
 
-            # ✅ Send email via SendGrid
-            sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
-            email_msg = Mail(
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to_emails=user.email,
-                subject="Your new Happstock verification code",
-                html_content=html_content,
+            subject = "Your new Happstock verification code"
+            from_email = settings.DEFAULT_FROM_EMAIL
+            recipient_list = [user.email]
+
+            # Send email using Brevo SMTP
+            email_message = EmailMultiAlternatives(
+                subject,
+                f"Your new verification code is {new_code}",
+                from_email,
+                recipient_list,
             )
-            sg.send(email_msg)
+
+            email_message.attach_alternative(html_content, "text/html")
+            email_message.send(fail_silently=False)
 
             return Response(
                 {"message": "A new verification code has been sent to your email."},
@@ -334,8 +362,27 @@ class ResendVerificationCodeView(APIView):
             )
 
         except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            print("Email sending failed:", str(e))
+            return Response(
+                {"error": "Failed to send verification email."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
+
+
+from django.conf import settings
+from django.utils import timezone
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 
 class RequestPasswordResetView(APIView):
@@ -362,38 +409,50 @@ class RequestPasswordResetView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Generate or reuse verification code
+        # Prevent multiple requests before expiration
+        if user.code_expires_at and timezone.now() < user.code_expires_at:
+            remaining_seconds = int((user.code_expires_at - timezone.now()).total_seconds())
+            remaining_minutes = remaining_seconds // 60
+            remaining_seconds = remaining_seconds % 60
+
+            return Response(
+                {
+                    "error": f"A code has already been sent. Please wait {remaining_minutes} minute(s) and {remaining_seconds} second(s) before requesting another."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate new verification code
         try:
-            # Prevent multiple requests before expiration
-            if user.code_expires_at and timezone.now() < user.code_expires_at:
-                remaining_time = int((user.code_expires_at - timezone.now()).seconds / 60)
-                return Response(
-                    {"error": f"A code has already been sent. Please wait {remaining_time} minute(s) before requesting another."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Generate a new verification code
             code = user.generate_verification_code()
-
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Render email template
-        html_message = render_to_string("apps/core/password_reset_email.html", {
-            "user": user,
-            "code": code,
-        })
+        html_message = render_to_string(
+            "core/password_reset_email.html",
+            {
+                "user": user,
+                "code": code,
+            },
+        )
 
-        # Send email using SendGrid
+        subject = "Password Reset Code"
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [user.email]
+
+        # Send email via Brevo SMTP
         try:
-            sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
-            email_msg = Mail(
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to_emails=user.email,
-                subject="Password Reset Code",
-                html_content=html_message,
+            email_message = EmailMultiAlternatives(
+                subject,
+                f"Your password reset code is {code}",
+                from_email,
+                recipient_list,
             )
-            sg.send(email_msg)
+
+            email_message.attach_alternative(html_message, "text/html")
+            email_message.send(fail_silently=False)
+
         except Exception as e:
             return Response(
                 {"error": f"Failed to send email: {str(e)}"},
@@ -404,6 +463,7 @@ class RequestPasswordResetView(APIView):
             {"message": "Password reset code sent to your email."},
             status=status.HTTP_200_OK
         )
+    
 
 class VerifyResetCodeView(APIView):
     def post(self, request):

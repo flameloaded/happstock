@@ -87,15 +87,21 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # ✅ Generate verification code
     def generate_verification_code(self):
-        # If the code exists and hasn’t expired yet
         if self.code_expires_at and timezone.now() < self.code_expires_at:
-            raise ValueError("A verification code has already been sent. Please wait until it expires.")
+            remaining_seconds = int((self.code_expires_at - timezone.now()).total_seconds())
+            remaining_minutes = remaining_seconds // 60
+            remaining_seconds = remaining_seconds % 60
 
-        # Otherwise, generate a new one
+            raise ValueError(
+                f"A verification code has already been sent. "
+                f"Please wait {remaining_minutes} minute(s) and {remaining_seconds} second(s)."
+            )
+
         code = str(random.randint(100000, 999999))
         self.verification_code = code
         self.code_expires_at = timezone.now() + timedelta(minutes=10)
-        self.save(update_fields=['verification_code', 'code_expires_at'])
+        self.save(update_fields=["verification_code", "code_expires_at"])
+
         return code
 
     def verify_code(self, code):
@@ -109,5 +115,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def resend_verification_code(self):
         if self.code_expires_at and timezone.now() < self.code_expires_at:
-            raise ValueError("You can only request a new code after the current one expires.")
+            remaining_seconds = int((self.code_expires_at - timezone.now()).total_seconds())
+            remaining_minutes = remaining_seconds // 60
+            remaining_seconds = remaining_seconds % 60
+
+            raise ValueError(
+                f"You can request a new code in {remaining_minutes} minute(s) "
+                f"and {remaining_seconds} second(s)."
+            )
+
         return self.generate_verification_code()

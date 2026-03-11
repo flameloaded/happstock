@@ -135,6 +135,8 @@ def create_branch(request, business_id):
 
 # Invite Staff
 
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def invite_staff(request, business_id):
@@ -143,62 +145,93 @@ def invite_staff(request, business_id):
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
-        return Response({"error": "Business not found"}, status=404)
+        return Response(
+            {"error": "Business not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
     # Only owner can invite
     if not is_owner(request.user, business):
-        return Response({"error": "Only owner can invite staff"}, status=403)
+        return Response(
+            {"error": "Only the business owner can invite staff"},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
     email = request.data.get("email")
     role = request.data.get("role")
     branch_id = request.data.get("branch_id")
 
+    # Validate email
     if not email:
-        return Response({"error": "Email is required"}, status=400)
+        return Response(
+            {"error": "Email is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
+    # Validate role
     if role not in ["manager", "attendant"]:
-        return Response({"error": "Invalid role"}, status=400)
+        return Response(
+            {"error": "Role must be either 'manager' or 'attendant'"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
+    # Validate branch if provided
     branch = None
     if branch_id:
         try:
             branch = Branch.objects.get(id=branch_id, business=business)
         except Branch.DoesNotExist:
-            return Response({"error": "Invalid branch"}, status=400)
+            return Response(
+                {"error": "Invalid branch"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # Prevent duplicate invitations
+    existing_invite = BusinessInvitation.objects.filter(
+        email=email,
+        business=business,
+        accepted=False
+    ).first()
+
+    if existing_invite:
+        return Response(
+            {"error": "An invitation has already been sent to this email"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     # Create invitation
-    invitation = BusinessInvitation.objects.create(
-        business=business,
-        email=email,
-        role=role,
-        invited_by=request.user,
-        branch=branch
-    )
+    existing_invite = BusinessInvitation.objects.filter(
+    email=email,
+    business=business,
+    accepted=False
+    ).first()
 
-    invite_link = f"http://127.0.0.1:8000/api/invitations/accept/{invitation.token}/?email={email}"
+    if existing_invite:
+        invitation = existing_invite
+    else:
+        invitation = BusinessInvitation.objects.create(
+            business=business,
+            email=email,
+            role=role,
+            invited_by=request.user,
+            branch=branch
+        )
+
+    invite_link = f"http://127.0.0.1:8000/api/invitations/accept/{invitation.token}/"
 
     # Render email template
-    try:
-        html_content = render_to_string(
-            "businesses/invite_email.html",
-            {
-                "invite_link": invite_link,
-                "business": business,
-                "role": role
-            }
-        )
-    except Exception as e:
-        return Response(
-            {
-                "error": "Email template not found",
-                "invite_link": invite_link
-            },
-            status=201
-        )
+    html_content = render_to_string(
+        "businesses/invite_email.html",
+        {
+            "invite_link": invite_link,
+            "business": business,
+            "role": role
+        }
+    )
 
     subject = "You've been invited to join a business"
     from_email = settings.DEFAULT_FROM_EMAIL
-    to_email = [email]
+    recipient_list = [email]
 
     # Send email
     try:
@@ -206,7 +239,7 @@ def invite_staff(request, business_id):
             subject,
             "You have been invited to join a business.",
             from_email,
-            to_email
+            recipient_list
         )
 
         email_message.attach_alternative(html_content, "text/html")
@@ -215,17 +248,21 @@ def invite_staff(request, business_id):
     except Exception as e:
         print("Email sending failed:", str(e))
 
-        # Return invite link if email fails
-        return Response({
-            "message": "Invitation created but email could not be sent",
-            "invite_link": invite_link
-        }, status=201)
+        return Response(
+            {
+                "message": "Invitation created but email could not be sent",
+                "invite_link": invite_link
+            },
+            status=status.HTTP_201_CREATED
+        )
 
-    return Response({
-        "message": "Invitation sent successfully",
-        "invite_link": invite_link
-})
-    
+    return Response(
+        {
+            "message": "Invitation sent successfully",
+            "email": email
+        },
+        status=status.HTTP_201_CREATED
+    )
 
 
 # Accept invitation
