@@ -1,4 +1,5 @@
 
+
 # Happstock Inventory – Business & Staff API Documentation
 
 This document describes the **Business Management API** used to manage:

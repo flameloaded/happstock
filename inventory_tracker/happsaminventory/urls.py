@@ -22,7 +22,7 @@ router = routers.DefaultRouter()
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include(router.urls)),
-    path('', include('apps.core.urls')),
+    path('api', include('apps.core.urls')),
     path('api/userprofile/', include('apps.userprofile.urls')),
     path("api/", include("apps.businesses.urls")),
 ]
