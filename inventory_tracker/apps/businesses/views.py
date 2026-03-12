@@ -22,6 +22,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import Business, BusinessInvitation, Branch
 from .permissions import is_owner
+from django.urls import reverse
+
 
 
 # Create a business
@@ -217,7 +219,9 @@ def invite_staff(request, business_id):
             branch=branch
         )
 
-    invite_link = f"http://127.0.0.1:8000/api/invitations/accept/{invitation.token}/"
+    invite_link = request.build_absolute_uri(
+        reverse("accept_invitation", args=[invitation.token])
+    )
 
     # Render email template
     html_content = render_to_string(

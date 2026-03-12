@@ -1,21 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Verify Your Happstock Account</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f6f9fc;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .header h2 {
+            color: #4CAF50;
+        }
+        .content {
+            margin-top: 20px;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        .code {
+            background-color: #f3f3f3;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            letter-spacing: 2px;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 25px;
+            font-size: 13px;
+            color: #777;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .footer a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
-    <p>Hello {{ user.first_name }},</p>
 
-    <p>Thank you for registering with <strong>Happstock</strong>!</p>
+<div class="container">
 
-    <p>Your verification code is:</p>
-    <h2 style="color:#007bff;">{{ verification_code }}</h2>
+    <div class="header">
+        <h2>Verify Your Happstock Account</h2>
+    </div>
 
-    <p>Please enter this code in the app or website to activate your account.</p>
+    <div class="content">
+        <p>Hello {{ user.first_name }},</p>
 
-    <p>If you didn’t register, please ignore this email.</p>
+        <p>Thank you for registering with <strong>Happstock</strong>!</p>
 
-    <p>Best regards,<br>The Happstock Team</p>
+        <p>Your verification code is:</p>
+
+        <div class="code">{{ verification_code }}</div>
+
+        <p>Please enter this code in the app or website to activate your account.</p>
+
+        <p>If you didn’t register, please ignore this email.</p>
+
+        <p>Best regards,<br>The Happstock Team</p>
+    </div>
+
+</div>
+
 </body>
 </html>

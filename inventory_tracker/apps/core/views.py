@@ -51,6 +51,14 @@ from sendgrid.helpers.mail import Mail
 from apps.core.models import User
 from apps.core.serializers import SignupSerializer  # adjust import if needed
 from django.core.mail import EmailMultiAlternatives
+
+from django.conf import settings
+from django.utils import timezone
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 User = get_user_model()
 
 
@@ -376,13 +384,6 @@ class ResendVerificationCodeView(APIView):
         
 
 
-from django.conf import settings
-from django.utils import timezone
-from django.template.loader import render_to_string
-from django.core.mail import EmailMultiAlternatives
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 
 
 class RequestPasswordResetView(APIView):

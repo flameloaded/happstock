@@ -1,62 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>You're Invited to Join Happstock</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f6f9fc;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .header h2 {
+            color: #4CAF50;
+        }
+        .content {
+            margin-top: 20px;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 12px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 25px;
+            font-size: 13px;
+            color: #777;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        .footer a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
 
-    <p>Hello,</p>
+<div class="container">
 
-    <p>
-        You have been invited to join <strong>{{ business.name }}</strong> on
-        <strong>Happstock</strong>.
-    </p>
+    <div class="header">
+        <h2>You're Invited to Join Happstock</h2>
+    </div>
 
-    <p>
-        As part of the team, you will have access to help manage the business
-        on the platform.
-    </p>
+    <div class="content">
 
-    <p>
-        Click the button below to accept the invitation:
-    </p>
+        <p>Hello,</p>
 
-    <p>
-        <a href="{{ invite_link }}"
-           style="background-color:#007bff;
-                  color:white;
-                  padding:12px 20px;
-                  text-decoration:none;
-                  border-radius:5px;
-                  font-weight:bold;">
-            Accept Invitation
-        </a>
-    </p>
+        <p>
+            You have been invited to join <strong>{{ business.name }}</strong> on
+            <strong>Happstock</strong>.
+        </p>
 
-    <p>
-        If you already have a Happstock account, simply log in and accept the invitation.
-    </p>
+        <p>
+            As part of the team, you will have access to help manage the business
+            on the platform.
+        </p>
 
-    <p>
-        If you don't have an account yet, you will be asked to create one
-        before joining the business.
-    </p>
+        <p>
+            Click the button below to accept the invitation:
+        </p>
 
-    <p>
-        This invitation will expire soon for security reasons.
-    </p>
+        <p>
+            <a href="{{ invite_link }}" class="button">
+                Accept Invitation
+            </a>
+        </p>
 
-    <p>
-        If you were not expecting this invitation, you can safely ignore this email.
-    </p>
+        <p>
+            If you already have a Happstock account, simply log in and accept the invitation.
+        </p>
 
-    <br>
+        <p>
+            If you don't have an account yet, you will be asked to create one
+            before joining the business.
+        </p>
 
-    <p>
-        Best regards,<br>
-        <strong>The Happstock Team</strong>
-    </p>
+        <p>
+            This invitation will expire soon for security reasons.
+        </p>
+
+        <p>
+            If you were not expecting this invitation, you can safely ignore this email.
+        </p>
+
+        <br>
+
+        <p>
+            Best regards,<br>
+            <strong>The Happstock Team</strong>
+        </p>
+
+    </div>
+
+</div>
 
 </body>
 </html>
