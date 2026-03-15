@@ -19,6 +19,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from django.contrib.auth.tokens import default_token_generator
 from django.template.loader import render_to_string
+from rest_framework.permissions import AllowAny
 
 from sendgrid.helpers.mail import Mail
 from django.core.cache import cache
@@ -256,7 +257,10 @@ class ActivateAccountView(APIView):
 
 
 
+
 class EmailLoginView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
@@ -265,17 +269,19 @@ class EmailLoginView(APIView):
 
         if user is not None:
             if not user.is_active:
-                return Response({"error": "Please verify your email before logging in."}, status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    {"error": "Please verify your email before logging in."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-            # generate JWT tokens
             refresh = RefreshToken.for_user(user)
+
             return Response({
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
-            }, status=status.HTTP_200_OK)
+            })
 
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
-    
 
     
 
