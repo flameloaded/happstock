@@ -66,7 +66,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=30, blank=True, null=True)
     registration_method = models.CharField(max_length=20, choices=REGISTRATION_CHOICES, default='email')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
-
+    last_code_sent_at = models.DateTimeField(null=True, blank=True)  # ✅ NEW FIELD
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
@@ -87,19 +87,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # ✅ Generate verification code
     def generate_verification_code(self):
-        if self.code_expires_at and timezone.now() < self.code_expires_at:
-            remaining_seconds = int((self.code_expires_at - timezone.now()).total_seconds())
-            remaining_minutes = remaining_seconds // 60
-            remaining_seconds = remaining_seconds % 60
-
-            raise ValueError(
-                f"A verification code has already been sent. "
-                f"Please wait {remaining_minutes} minute(s) and {remaining_seconds} second(s)."
-            )
 
         code = str(random.randint(100000, 999999))
+
         self.verification_code = code
-        self.code_expires_at = timezone.now() + timedelta(minutes=10)
+        self.code_expires_at = timezone.now() + timedelta(minutes=5)
+
         self.save(update_fields=["verification_code", "code_expires_at"])
 
         return code

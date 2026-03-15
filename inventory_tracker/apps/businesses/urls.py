@@ -77,10 +77,20 @@ urlpatterns = [
     # ===============================
 
     # Invite staff
+    
+
     path(
         "business/<int:business_id>/invite/",
         views.invite_staff,
         name="invite_staff"
+    ),
+
+
+    # Resend Invitation
+    path(
+        "invitation/<int:invitation_id>/resend/",
+        views.resend_invitation,
+        name="resend_invitation"
     ),
 
     # Accept invitation

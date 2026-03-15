@@ -122,6 +122,8 @@ class BusinessInvitation(models.Model):
         related_name="sent_business_invites"
     )
 
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    
     accepted = models.BooleanField(default=False)
 
     # NEW FIELD
@@ -132,7 +134,7 @@ class BusinessInvitation(models.Model):
     def save(self, *args, **kwargs):
         # Automatically set expiration if not already set
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(days=2)
+            self.expires_at = timezone.now() + timedelta(days=1)
         super().save(*args, **kwargs)
 
     def is_expired(self):

@@ -60,7 +60,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 User = get_user_model()
-
+from .utils import send_verification_email, send_password_reset_email
+from django.utils import timezone
+from datetime import timedelta
 
 
 @api_view(["POST"])
@@ -161,17 +163,16 @@ class SignupView(APIView):
     Handles new user signup and sends an email verification code.
     Ensures case-insensitive email uniqueness and prevents duplicate code generation before expiry.
     """
+
     def post(self, request):
+
         serializer = SignupSerializer(data=request.data)
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        print("STEP 1: Serializer valid")
-
         email = serializer.validated_data["email"].lower()
 
-        print("STEP 2: Email:", email)
         # Ensure email uniqueness regardless of case
         if User.objects.filter(email__iexact=email).exists():
             return Response(
@@ -182,54 +183,16 @@ class SignupView(APIView):
         # Create inactive user
         user = serializer.save(email=email, is_active=False)
 
-        print("STEP 3: User created:", user.id)
-        # Prevent duplicate verification code requests
-        if user.code_expires_at and timezone.now() < user.code_expires_at:
-            remaining_time = int(
-                (user.code_expires_at - timezone.now()).seconds / 60
-            )
-            return Response(
-                {
-                    "error": f"A verification code has already been sent. Please wait {remaining_time} minute(s) before requesting another."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         # Generate verification code
         code = user.generate_verification_code()
 
-        print("STEP 4: Verification code generated:", code)
-
-        # Render email template
-        html_message = render_to_string(
-            "core/account_activation_email.html",
-            {
-                "user": user,
-                "verification_code": code,
-                "expiry_minutes": 10,
-            },
-        )
-
-
-        subject = "Verify your Happstock account"
-        from_email = settings.DEFAULT_FROM_EMAIL
-        recipient_list = [user.email]
-
-        # Send email using Brevo SMTP
-        print("STEP 5: Template rendered")
+        # NEW: save when code was sent
+        user.last_code_sent_at = timezone.now()  # ✅ NEW FIELD
+        user.save()
 
         try:
-            email_message = EmailMultiAlternatives(
-                subject,
-                f"Your verification code is {code}",
-                from_email,
-                recipient_list,
-            )
-            print("STEP 6: Sending email")
-            email_message.attach_alternative(html_message, "text/html")
-            email_message.send(fail_silently=False)
 
-            print("STEP 7: Email sent")
+            send_verification_email(user, code)  # ✅ UPDATED (reusable email function)
 
             return Response(
                 {
@@ -239,17 +202,17 @@ class SignupView(APIView):
             )
 
         except Exception as e:
+
             print("Email sending failed:", str(e))
 
-        # Fallback if email fails
-        return Response(
-            {
-                "detail": "Account created successfully.",
-                "verification_code": code,
-                "note": "Email service unavailable. Verification code returned in response."
-            },
-            status=status.HTTP_201_CREATED,
-        )
+            return Response(
+                {
+                    "detail": "Account created successfully.",
+                    "verification_code": code,
+                    "note": "Email service unavailable. Verification code returned in response."
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
 
 
@@ -258,8 +221,9 @@ class SignupView(APIView):
 
 
 class ActivateAccountView(APIView):
+
     def post(self, request):
-        print("Received data:", request.data)  # debug
+
 
         # Extract safely
         email = request.data.get("email")
@@ -318,69 +282,75 @@ class EmailLoginView(APIView):
 
 
 class ResendVerificationCodeView(APIView):
+
     def post(self, request):
-        
+
         email = request.data.get("email")
 
         if not email:
             return Response(
-                {"error": "Email is required."},
+                {"error": "Email is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(email__iexact=email)
+
         except User.DoesNotExist:
             return Response(
-                {"error": "User not found."},
+                {"error": "User not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        try:
-            # Generate new verification code
-            new_code = user.resend_verification_code()
-
-            # Render HTML email template
-            html_content = render_to_string(
-                "core/verification_email.html",
-                {
-                    "user": user,
-                    "code": new_code
-                }
-            )
-
-            subject = "Your new Happstock verification code"
-            from_email = settings.DEFAULT_FROM_EMAIL
-            recipient_list = [user.email]
-
-            # Send email using Brevo SMTP
-            email_message = EmailMultiAlternatives(
-                subject,
-                f"Your new verification code is {new_code}",
-                from_email,
-                recipient_list,
-            )
-
-            email_message.attach_alternative(html_content, "text/html")
-            email_message.send(fail_silently=False)
-
+        if user.is_active:
             return Response(
-                {"message": "A new verification code has been sent to your email."},
-                status=status.HTTP_200_OK
-            )
-
-        except ValueError as e:
-            return Response(
-                {"error": str(e)},
+                {"error": "Account already verified"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        except Exception as e:
-            print("Email sending failed:", str(e))
-            return Response(
-                {"error": "Failed to send verification email."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        
+        # NEW: rate limit resend (1 minute)
+        if user.last_code_sent_at and user.last_code_sent_at > timezone.now() - timedelta(minutes=1):
+
+            remaining_seconds = int(
+                (user.last_code_sent_at + timedelta(minutes=1) - timezone.now()).total_seconds()
             )
+
+            minutes = remaining_seconds // 60
+            seconds = remaining_seconds % 60
+
+            return Response(
+                {
+                    "error": f"Please wait {minutes} minute(s) and {seconds} second(s)"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate new code
+        code = user.generate_verification_code()
+
+        # Update last sent time
+        user.last_code_sent_at = timezone.now()
+        user.save()
+
+        try:
+
+            send_verification_email(user, code)
+
+        except Exception as e:
+
+            print("Resend email failed:", str(e))
+
+            return Response(
+                {
+                    "verification_code": code,
+                    "note": "Email service unavailable"
+                }
+            )
+
+        return Response(
+            {"detail": "Verification code resent successfully"}
+        )
         
 
 
@@ -393,6 +363,7 @@ class RequestPasswordResetView(APIView):
     """
 
     def post(self, request):
+
         email = request.data.get("email")
 
         if not email:
@@ -401,60 +372,51 @@ class RequestPasswordResetView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Check if user exists
         try:
-            user = User.objects.get(email=email)
+            # UPDATED: case-insensitive email check
+            user = User.objects.get(email__iexact=email)
+
         except User.DoesNotExist:
             return Response(
                 {"error": "User not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Prevent multiple requests before expiration
+        # Prevent requesting new code before expiration
         if user.code_expires_at and timezone.now() < user.code_expires_at:
-            remaining_seconds = int((user.code_expires_at - timezone.now()).total_seconds())
-            remaining_minutes = remaining_seconds // 60
-            remaining_seconds = remaining_seconds % 60
+
+            remaining_seconds = int(
+                (user.code_expires_at - timezone.now()).total_seconds()
+            )
+
+            minutes = remaining_seconds // 60
+            seconds = remaining_seconds % 60
 
             return Response(
                 {
-                    "error": f"A code has already been sent. Please wait {remaining_minutes} minute(s) and {remaining_seconds} second(s) before requesting another."
+                    "error": f"A code has already been sent. Please wait {minutes} minute(s) and {seconds} second(s)."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        # Generate new verification code
-        try:
-            code = user.generate_verification_code()
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Render email template
-        html_message = render_to_string(
-            "core/password_reset_email.html",
-            {
-                "user": user,
-                "code": code,
-            },
-        )
-
-        subject = "Password Reset Code"
-        from_email = settings.DEFAULT_FROM_EMAIL
-        recipient_list = [user.email]
-
-        # Send email via Brevo SMTP
-        try:
-            email_message = EmailMultiAlternatives(
-                subject,
-                f"Your password reset code is {code}",
-                from_email,
-                recipient_list,
+        if user.is_active is False:
+            return Response(
+                {"error": "Account not activated yet."},
+                status=status.HTTP_400_BAD_REQUEST
             )
+        # Generate new verification code
+        code = user.generate_verification_code()
 
-            email_message.attach_alternative(html_message, "text/html")
-            email_message.send(fail_silently=False)
+        # NEW: track last time code was sent
+        user.last_code_sent_at = timezone.now()
+        user.save()
+
+        try:
+
+            # UPDATED: reusable email function
+            send_password_reset_email(user, code)
 
         except Exception as e:
+
             return Response(
                 {"error": f"Failed to send email: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -465,6 +427,59 @@ class RequestPasswordResetView(APIView):
             status=status.HTTP_200_OK
         )
     
+class ResendPasswordResetCodeView(APIView):
+
+    def post(self, request):
+
+        email = request.data.get("email")
+
+        if not email:
+            return Response(
+                {"error": "Email is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email__iexact=email)
+
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # NEW: rate limit resend (1 minute)
+        if user.last_code_sent_at and user.last_code_sent_at > timezone.now() - timedelta(minutes=1):
+
+            return Response(
+                {"error": "Please wait {minutes} minute(s) to resend another code"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate new reset code
+        code = user.generate_verification_code()
+
+        user.last_code_sent_at = timezone.now()
+        user.save()
+
+        try:
+
+            send_password_reset_email(user, code)
+
+        except Exception as e:
+
+            return Response(
+                {
+                    "note": "Email failed, returning code.",
+                    "code": code
+                }
+            )
+
+        return Response(
+            {"message": "Password reset code resent successfully."},
+            status=status.HTTP_200_OK
+        )
+
 
 class VerifyResetCodeView(APIView):
     def post(self, request):

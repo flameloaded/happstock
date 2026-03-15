@@ -7,7 +7,8 @@ from .views import (SignupView,
                     ResendVerificationCodeView,
                     RequestPasswordResetView,
                     VerifyResetCodeView,
-                    ResetPasswordView)
+                    ResetPasswordView,
+                    ResendPasswordResetCodeView)
 
 
 
@@ -24,5 +25,5 @@ urlpatterns = [
     path("auth/request-password-reset/", RequestPasswordResetView.as_view(), name="request-password-reset"),
     path("auth/verify-reset-code/", VerifyResetCodeView.as_view(), name="verify-reset-code"),
     path("auth/reset-password/", ResetPasswordView.as_view(), name="reset-password"),
-
+    path("resend-password-reset/",ResendPasswordResetCodeView.as_view(),name="resend_password_reset"),
 ]

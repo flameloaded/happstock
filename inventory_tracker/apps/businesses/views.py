@@ -23,7 +23,9 @@ from rest_framework.response import Response
 from .models import Business, BusinessInvitation, Branch
 from .permissions import is_owner
 from django.urls import reverse
-
+from .utils import send_business_invitation_email
+from django.utils import timezone
+from datetime import timedelta
 
 
 # Create a business
@@ -139,11 +141,13 @@ def create_branch(request, business_id):
 
 
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def invite_staff(request, business_id):
 
-    # Check business exists
+
+
     try:
         business = Business.objects.get(id=business_id)
     except Business.DoesNotExist:
@@ -152,7 +156,8 @@ def invite_staff(request, business_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # Only owner can invite
+
+
     if not is_owner(request.user, business):
         return Response(
             {"error": "Only the business owner can invite staff"},
@@ -163,21 +168,20 @@ def invite_staff(request, business_id):
     role = request.data.get("role")
     branch_id = request.data.get("branch_id")
 
-    # Validate email
+
     if not email:
         return Response(
             {"error": "Email is required"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Validate role
+
     if role not in ["manager", "attendant"]:
         return Response(
             {"error": "Role must be either 'manager' or 'attendant'"},
             status=status.HTTP_400_BAD_REQUEST
         )
-
-    # Validate branch if provided
+    
     branch = None
     if branch_id:
         try:
@@ -188,73 +192,55 @@ def invite_staff(request, business_id):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    # Prevent duplicate invitations
     existing_invite = BusinessInvitation.objects.filter(
         email=email,
         business=business,
         accepted=False
     ).first()
 
+    # ✅ UPDATED: allow resend instead of blocking
     if existing_invite:
-        return Response(
-            {"error": "An invitation has already been sent to this email"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
-    # Create invitation
-    existing_invite = BusinessInvitation.objects.filter(
-    email=email,
-    business=business,
-    accepted=False
-    ).first()
+        if existing_invite.is_expired():
+            existing_invite.delete()  # remove expired invite
+        else:
+            return Response(
+                {
+                    "error": "Invitation already sent",
+                    "invitation_id": existing_invite.id  # frontend can use this to resend
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    if existing_invite:
-        invitation = existing_invite
-    else:
-        invitation = BusinessInvitation.objects.create(
-            business=business,
-            email=email,
-            role=role,
-            invited_by=request.user,
-            branch=branch
-        )
+    invitation = BusinessInvitation.objects.create(
+        business=business,
+        email=email,
+        role=role,
+        invited_by=request.user,
+        branch=branch
+    )
 
     invite_link = request.build_absolute_uri(
         reverse("accept_invitation", args=[invitation.token])
     )
 
-    # Render email template
-    html_content = render_to_string(
-        "businesses/invite_email.html",
-        {
-            "invite_link": invite_link,
-            "business": business,
-            "role": role
-        }
-    )
-
-    subject = "You've been invited to join a business"
-    from_email = settings.DEFAULT_FROM_EMAIL
-    recipient_list = [email]
-
-    # Send email
     try:
-        email_message = EmailMultiAlternatives(
-            subject,
-            "You have been invited to join a business.",
-            from_email,
-            recipient_list
+
+        # ✅ UPDATED: using reusable email function
+        send_business_invitation_email(
+            email,
+            invite_link,
+            business,
+            role
         )
 
-        email_message.attach_alternative(html_content, "text/html")
-        email_message.send()
-
     except Exception as e:
+
         print("Email sending failed:", str(e))
 
         return Response(
             {
-                "message": "Invitation created but email could not be sent",
+                "message": "Invitation created but email failed",
                 "invite_link": invite_link
             },
             status=status.HTTP_201_CREATED
@@ -263,12 +249,84 @@ def invite_staff(request, business_id):
     return Response(
         {
             "message": "Invitation sent successfully",
-            "email": email
+            "invitation_id": invitation.id  # ✅ NEW (used for resend)
         },
         status=status.HTTP_201_CREATED
     )
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def resend_invitation(request, invitation_id):
 
+    try:
+        invitation = BusinessInvitation.objects.get(id=invitation_id)
+
+    except BusinessInvitation.DoesNotExist:
+        return Response(
+            {"error": "Invitation not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    business = invitation.business
+
+    # Only owner can resend
+    if not is_owner(request.user, business):
+        return Response(
+            {"error": "Only the business owner can resend invitations"},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if invitation.accepted:
+        return Response(
+            {"error": "User already accepted the invitation"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Check expiration
+    if invitation.is_expired():
+        return Response(
+            {"error": "Invitation expired. Please send a new invite."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # ✅ NEW: spam protection (5 minute rule)
+    if invitation.last_sent_at and invitation.last_sent_at > timezone.now() - timedelta(minutes=1):
+
+        return Response(
+            {"error": "Please wait before resending invitation"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    invite_link = request.build_absolute_uri(
+        reverse("accept_invitation", args=[invitation.token])
+    )
+
+    try:
+
+        send_business_invitation_email(
+            invitation.email,
+            invite_link,
+            invitation.business,
+            invitation.role
+        )
+
+        # ✅ UPDATED: update last sent time
+        invitation.last_sent_at = timezone.now()
+        invitation.save()
+
+    except Exception as e:
+
+        print("Email resend failed:", str(e))
+
+        return Response(
+            {"error": "Failed to resend invitation"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    return Response(
+        {"message": "Invitation resent successfully"},
+        status=status.HTTP_200_OK
+    )
 # Accept invitation
 
 @api_view(["POST"])
