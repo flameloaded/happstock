@@ -171,6 +171,13 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
 
 
 
+print("SMTP USER:", config("BREVO_SMTP_USER", default="NOT FOUND"))
+print("SMTP KEY:", config("BREVO_SMTP_KEY", default="NOT FOUND"))
+print("FROM EMAIL:", config("DEFAULT_FROM_EMAIL", default="NOT FOUND"))
+
+
+
+
 
 
 
