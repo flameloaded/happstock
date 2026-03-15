@@ -158,9 +158,9 @@ CSRF_TRUSTED_ORIGINS += ['http://127.0.0.1:8000', 'http://localhost:8000']
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 EMAIL_HOST = "smtp-relay.brevo.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
+EMAIL_PORT = 465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
 
 EMAIL_HOST_USER = config("BREVO_SMTP_USER")
 EMAIL_HOST_PASSWORD = config("BREVO_SMTP_KEY")
@@ -171,9 +171,7 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
 
 
 
-print("SMTP USER:", config("BREVO_SMTP_USER", default="NOT FOUND"))
-print("SMTP KEY:", config("BREVO_SMTP_KEY", default="NOT FOUND"))
-print("FROM EMAIL:", config("DEFAULT_FROM_EMAIL", default="NOT FOUND"))
+
 
 
 
