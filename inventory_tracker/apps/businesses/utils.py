@@ -2,6 +2,10 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 
+import requests
+from django.template.loader import render_to_string
+from django.conf import settings
+
 
 def send_business_invitation_email(email, invite_link, business, role):
 
@@ -16,12 +20,28 @@ def send_business_invitation_email(email, invite_link, business, role):
 
     subject = "You've been invited to join a business"
 
-    email_message = EmailMultiAlternatives(
-        subject,
-        "You have been invited to join a business.",
-        settings.DEFAULT_FROM_EMAIL,
-        [email]
-    )
+    url = "https://api.brevo.com/v3/smtp/email"
 
-    email_message.attach_alternative(html_content, "text/html")
-    email_message.send(fail_silently=True)
+    headers = {
+        "accept": "application/json",
+        "api-key": settings.EMAIL_HOST_PASSWORD,
+        "content-type": "application/json"
+    }
+
+    payload = {
+        "sender": {
+            "email": settings.DEFAULT_FROM_EMAIL
+        },
+        "to": [
+            {"email": email}
+        ],
+        "subject": subject,
+        "htmlContent": html_content
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    if response.status_code != 201:
+        print("Email sending failed:", response.text)
+
+    return response.json()
