@@ -24,4 +24,4 @@ def send_business_invitation_email(email, invite_link, business, role):
     )
 
     email_message.attach_alternative(html_content, "text/html")
-    email_message.send()
+    email_message.send(fail_silently=True)
